@@ -7,8 +7,21 @@ clear; clc; close all;
 %% Choose the experiment - type ONLY the experiment number, e.g. 4-2-03
 expNum = strtrim(strrep(strrep(input('Enter experiment number (e.g. 4-1-11b): ', 's'), '"', ''), '''', ''));
 
-% All .txt files in the Current Folder and its subfolders
-files = [dir('*.txt'); dir(fullfile('**', '*.txt'))];
+% Find the data folder: Current Folder, then Downloads\DSP Group 3 Data,
+% and if neither has .txt files, ask the user to pick the folder.
+dataDir = pwd;
+downloadsDir = fullfile(getenv('USERPROFILE'), 'Downloads', 'DSP Group 3 Data');
+if isempty(dir(fullfile(dataDir, '**', '*.txt'))) && isfolder(downloadsDir)
+    dataDir = downloadsDir;
+end
+if isempty(dir(fullfile(dataDir, '**', '*.txt')))
+    dataDir = uigetdir(pwd, 'Select the "DSP Data" folder');
+    if isequal(dataDir, 0), error('No data folder selected.'); end
+end
+fprintf('Data folder    : %s\n', dataDir);
+
+% All .txt files in the data folder and its subfolders
+files = [dir(fullfile(dataDir, '*.txt')); dir(fullfile(dataDir, '**', '*.txt'))];
 [~, iu] = unique(strcat({files.folder}, filesep, {files.name}));  files = files(iu);
 names = {files.name};
 
@@ -20,7 +33,7 @@ isFft = isExp & ~cellfun(@isempty, regexpi(names, 'fft(\.txt)+$', 'once'));
 if ~any(isDat) || ~any(isFft)
     expList = unique(regexp(names, '^[^_ ]+', 'match', 'once'));
     error(['Could not find both the dat.txt and fft.txt files for "%s" in\n  %s\n' ...
-           'Experiment numbers found here: %s'], expNum, pwd, strjoin(expList, ', '));
+           'Experiment numbers found here: %s'], expNum, dataDir, strjoin(expList, ', '));
 end
 datFile = files(find(isDat, 1));
 fftFile = files(find(isFft, 1));
