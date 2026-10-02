@@ -15,8 +15,12 @@
 clear; clc; close all;
 
 %% ------------------------- USER SETTINGS --------------------------------
-% Pattern for the data files to plot
-FILE_PATTERN = '4-1-11*.txt';
+% Start of the file names to plot. Dashes also match "_", "." or spaces, so
+% '4-1-11' finds "4-1-11.txt", "4-1-11b.txt", "4_1_11 trial 2.txt", etc.
+FILE_PREFIX = '4-1-11';
+
+% File types counted as data (Excel, PDF, m-files etc. are ignored)
+DATA_EXTENSIONS = {'.txt', '.lvm', '.dat', '.csv'};
 
 % Sampling frequency [Hz]. Only used if the file has NO time column and the
 % header does not state a sample rate / dt. Leave [] to be warned instead.
@@ -45,12 +49,26 @@ if isempty(dataFolder)
     dataFolder = pwd;
 end
 
-files = dir(fullfile(dataFolder, FILE_PATTERN));
+files = findDataFiles(dataFolder, FILE_PREFIX, DATA_EXTENSIONS);
 if isempty(files)
-    error('No files matching "%s" were found in:\n  %s', FILE_PATTERN, dataFolder);
+    % Show what IS in the folder, then let the user pick the right one
+    listFolderContents(dataFolder);
+    fprintf('\nNo data files starting with "%s" in:\n  %s\n', FILE_PREFIX, dataFolder);
+    fprintf('Please select the folder that holds the data files...\n');
+    picked = uigetdir(pwd, sprintf('Select the folder with the %s data files', FILE_PREFIX));
+    if isequal(picked, 0)
+        error('No folder selected.');
+    end
+    dataFolder = picked;
+    files = findDataFiles(dataFolder, FILE_PREFIX, DATA_EXTENSIONS);
+    if isempty(files)
+        listFolderContents(dataFolder);
+        error('Still no data files starting with "%s" in:\n  %s', FILE_PREFIX, dataFolder);
+    end
 end
 
-fprintf('Found %d file(s) matching "%s":\n', numel(files), FILE_PATTERN);
+fprintf('Data folder: %s\n', dataFolder);
+fprintf('Found %d file(s) starting with "%s":\n', numel(files), FILE_PREFIX);
 fprintf('  %s\n', files.name);
 
 %% ------------------------ PROCESS EACH FILE -----------------------------
@@ -59,7 +77,7 @@ for k = 1:numel(files)
     [~, testName] = fileparts(fileName);
 
     % ---- Load data ----
-    [t, v, fs, chanNames] = loadLabData(fullfile(dataFolder, fileName), DEFAULT_FS);
+    [t, v, fs, chanNames] = loadLabData(fullfile(files(k).folder, fileName), DEFAULT_FS);
     N = size(v, 1);
 
     % ---- Single-sided amplitude spectrum ----
@@ -143,6 +161,40 @@ for k = 1:numel(files)
 end
 
 %% ======================== LOCAL FUNCTIONS ===============================
+
+function files = findDataFiles(folder, prefix, exts)
+% Finds data files (this folder and its subfolders) whose names start with
+% the prefix. Dashes in the prefix also match "_", "." or a space.
+    files = listAllFiles(folder);
+    pat   = ['^' regexprep(prefix, '[-_. ]', '[-_. ]?')];
+    keep  = false(size(files));
+    for i = 1:numel(files)
+        [~, ~, ext] = fileparts(files(i).name);
+        keep(i) = any(strcmpi(ext, exts)) && ...
+                  ~isempty(regexpi(strtrim(files(i).name), pat, 'once'));
+    end
+    files = files(keep);
+end
+
+function files = listAllFiles(folder)
+% All files in the folder and its subfolders (no duplicates).
+    files = [dir(fullfile(folder, '*')); dir(fullfile(folder, '**', '*'))];
+    files = files(~[files.isdir]);
+    [~, iu] = unique(fullfile({files.folder}, {files.name}), 'stable');
+    files = files(iu);
+end
+
+function listFolderContents(folder)
+% Prints every file in the folder (and subfolders) to help find the data.
+    items = listAllFiles(folder);
+    fprintf('\nFiles in %s:\n', folder);
+    if isempty(items)
+        fprintf('  (folder is empty)\n');
+    end
+    for i = 1:numel(items)
+        fprintf('  %s\n', fullfile(strrep(items(i).folder, folder, '.'), items(i).name));
+    end
+end
 
 function [t, v, fs, chanNames] = loadLabData(filePath, defaultFs)
 % Reads a text data file. Header/text lines are skipped; numeric rows are
