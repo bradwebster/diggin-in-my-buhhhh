@@ -4,20 +4,31 @@
 % Each experiment needs two files:  <exp>_..._dat.txt  and  <exp>_..._fft.txt
 clear; clc; close all;
 
-%% Choose the experiment (must match the start of the file name exactly)
-expNum = input('Enter experiment number (e.g. 4-1-11b): ', 's');
+%% Choose the experiment - type ONLY the experiment number, e.g. 4-2-03
+expNum = strtrim(strrep(strrep(input('Enter experiment number (e.g. 4-1-11b): ', 's'), '"', ''), '''', ''));
 
-datFile = dir([expNum '_*dat.txt']);
-fftFile = dir([expNum '_*fft.txt']);
-if numel(datFile) ~= 1 || numel(fftFile) ~= 1
-    error('Need exactly one "%s_..._dat.txt" and one "%s_..._fft.txt" in %s', ...
-        expNum, expNum, pwd);
+% All .txt files in the Current Folder and its subfolders
+files = [dir('*.txt'); dir(fullfile('**', '*.txt'))];
+[~, iu] = unique(strcat({files.folder}, filesep, {files.name}));  files = files(iu);
+names = {files.name};
+
+% Files that start with the experiment number followed by "_", "-", space...
+isExp = ~cellfun(@isempty, regexpi(names, ['^' regexptranslate('escape', expNum) '[^a-z0-9]'], 'once'));
+isDat = isExp & ~cellfun(@isempty, regexpi(names, 'dat(\.txt)+$', 'once'));
+isFft = isExp & ~cellfun(@isempty, regexpi(names, 'fft(\.txt)+$', 'once'));
+
+if ~any(isDat) || ~any(isFft)
+    expList = unique(regexp(names, '^[^_ ]+', 'match', 'once'));
+    error(['Could not find both the dat.txt and fft.txt files for "%s" in\n  %s\n' ...
+           'Experiment numbers found here: %s'], expNum, pwd, strjoin(expList, ', '));
 end
+datFile = files(find(isDat, 1));
+fftFile = files(find(isFft, 1));
 fprintf('Time data file : %s\nFFT data file  : %s\n', datFile.name, fftFile.name);
 
 %% Load data (column 1 = time or frequency, column 2 = voltage)
-dat = readmatrix(datFile.name);  dat = dat(all(~isnan(dat), 2), :);
-fftData = readmatrix(fftFile.name);  fftData = fftData(all(~isnan(fftData), 2), :);
+dat = readmatrix(fullfile(datFile.folder, datFile.name));  dat = dat(all(~isnan(dat), 2), :);
+fftData = readmatrix(fullfile(fftFile.folder, fftFile.name));  fftData = fftData(all(~isnan(fftData), 2), :);
 if size(dat, 1) == 2,     dat = dat.';         end   % data saved as rows
 if size(fftData, 1) == 2, fftData = fftData.'; end
 
