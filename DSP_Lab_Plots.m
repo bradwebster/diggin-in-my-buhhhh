@@ -51,7 +51,7 @@ if strcmpi(expNum, 'PSM')
         plot(t*1e3, S(:, n), 'Color', colors(n, :), 'LineWidth', 1 + 0.4*n);
     end
     legend(arrayfun(@(n) sprintf('n = %d term(s)', n), 1:numel(bn), 'UniformOutput', false), 'Location', 'eastoutside');
-    xlim([0 2*T*1e3]); ylim([min(S(:)) max(S(:))] + [-0.2 0.2]*range(S(:)));
+    xlim([0 2*T*1e3]); ylim([min(S(:)) max(S(:))] + [-0.2 0.2]*(max(S(:)) - min(S(:))));
     xlabel('Time (ms)'); ylabel('Voltage (V)');
     title('Partial Sum Reconstruction for Increasing Number of Terms n');
     return
@@ -148,7 +148,7 @@ subplot(2, 2, 1);
 plot(t, V, 'LineWidth', 1.2); grid on;
 tShow = min(t(end) - t(1), 5 / max(pkFreq(1), 1/(t(end)-t(1))));
 xlim([t(1) t(1) + tShow]);
-ylim([min(V) max(V)] + [-0.1 0.1]*max(range(V), eps));
+ylim([min(V) max(V)] + [-0.1 0.1]*max(max(V) - min(V), eps));
 xlabel('Time (s)'); ylabel('Voltage (V)');
 title(['Time Domain - ' expNum], 'Interpreter', 'none');
 
